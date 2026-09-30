@@ -461,9 +461,48 @@ def choose_final(original, refined, language):
     return (" " if language == "en" else "").join(sentences[kept[0]: kept[-1] + 1])
 
 
+class Glossary:
+    def __init__(self, path):
+        self.path = path
+        self.stamp = None
+        self.terms = []
+
+    def _load(self):
+        try:
+            stamp = os.stat(self.path).st_mtime_ns
+        except OSError:
+            stamp = None
+        if stamp == self.stamp:
+            return
+        terms = []
+        if stamp is not None:
+            try:
+                with open(self.path, encoding="utf-8-sig", errors="replace") as handle:
+                    lines = handle.read().splitlines()
+            except OSError:
+                return
+            for line in lines:
+                source, separator, target = line.partition("=")
+                source, target = source.strip(), target.strip()
+                if not separator or not source or not target or source.startswith("#"):
+                    continue
+                pattern = re.escape(source)
+                if source.isascii():
+                    pattern = rf"(?<![A-Za-z0-9]){pattern}(?![A-Za-z0-9])"
+                terms.append((re.compile(pattern, re.IGNORECASE), source, target))
+        self.stamp = stamp
+        self.terms = terms
+        debug(f"glossary: {len(terms)} terms")
+
+    def match(self, text):
+        self._load()
+        return [(source, target) for pattern, source, target in self.terms if pattern.search(text)]
+
+
 class Translator:
-    def __init__(self, model, tokenizer, model_type="", refiner=None, name=""):
+    def __init__(self, model, tokenizer, model_type="", refiner=None, name="", glossary=None):
         self.refiner = refiner
+        self.glossary = glossary
         self.model = model
         self.tokenizer = tokenizer
         template = getattr(tokenizer, "chat_template", None) or ""
@@ -490,20 +529,25 @@ class Translator:
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
 
-    def _prompt_text(self, japanese, context=()):
+    def _prompt_text(self, japanese, context=(), terms=()):
         if self.style == "hunyuan_mt":
             return HUNYUAN_PREFIX + japanese + HUNYUAN_SUFFIX
         context_text = "".join(context)
+        glossary_text = "；".join(f"{source} 翻译成 {target}" for source, target in terms)
         if self.style == "hy_mt2":
             tasks = []
             if context_text:
                 tasks.append(f"这是会议的实时字幕，前文是：「{context_text}」，请结合前文理解语境，但不要翻译前文。")
+            if glossary_text:
+                tasks.append(f"参考下面的翻译：{glossary_text}。")
             tasks.append(HY_MT2_RULES)
             tasks.append("将【待翻译文本】翻译为简体中文，只输出译文。")
             numbered = "\n".join(f"{index}、{task}" for index, task in enumerate(tasks, 1))
             messages = [{"role": "user", "content": f"【待翻译文本】\n{japanese}\n\n【翻译任务】\n{numbered}"}]
         else:
             system = CHAT_SYSTEM_PROMPT
+            if glossary_text:
+                system += f"\n术语必须按下面的翻译：{glossary_text}"
             if context_text:
                 system += f"\n前文（仅供理解语境，不要翻译）：{context_text}"
             messages = [
@@ -574,7 +618,10 @@ class Translator:
         return chinese
 
     def _generate_once(self, japanese, context=()):
-        tokens = self._encode(self._prompt_text(japanese, context))
+        terms = self.glossary.match(japanese) if self.glossary is not None else []
+        if terms:
+            debug(f"glossary terms {terms}")
+        tokens = self._encode(self._prompt_text(japanese, context, terms))
         cache = None
         if self.prefix_tokens and tokens[: len(self.prefix_tokens)] == self.prefix_tokens:
             tokens = tokens[len(self.prefix_tokens):]
@@ -671,7 +718,8 @@ def main():
         emit("status", message="準備中")
         refiner = Refiner(refiner_path)
     debug(f"refiner: {refiner_path if refiner else None}")
-    translator = Translator(*load(translation_path), model_type=model_type, refiner=refiner, name=os.path.basename(os.path.normpath(translation_path)))
+    glossary = Glossary(os.path.join(models_dir, "glossary.txt"))
+    translator = Translator(*load(translation_path), model_type=model_type, refiner=refiner, name=os.path.basename(os.path.normpath(translation_path)), glossary=glossary)
     debug(f"translator style={translator.style} prefix_cached={translator.prefix_tokens is not None}")
     emit("ready", message="就緒")
 

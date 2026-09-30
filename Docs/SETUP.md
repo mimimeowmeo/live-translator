@@ -227,9 +227,24 @@ open "${REPO_ROOT}/Build/LiveTranslator.app"
 
 ```bash
 echo "Hy-MT2-7B-4bit" > "${REPO_ROOT}/Models/translation-model.txt"
+cd "${REPO_ROOT}"
+HF_HUB_DISABLE_XET=1 .venv/bin/python Scripts/download_models.py
 ```
 
+下載腳本會一併下載這裡指定的模型（mlx-community 下的同名 repo）；指定的模型尚未下載時，App 沿用上面的預設順序。
+
 Hy-MT2-7B 4-bit（mlx-community/Hy-MT2-7B-4bit，4.0 GB）翻得比 1.8B 準，代價是每句多約 2 秒、權重多 2.1 GB。
+
+### 詞彙表
+
+在 `Models/glossary.txt` 每行寫一組「原文=譯文」，句子裡出現的詞會照指定的譯法翻。存檔後下一句生效，不必重開 App；`#` 開頭的行忽略。
+
+```
+先方=对方
+キックオフ=启动会
+```
+
+原文寫逐字稿上實際出現的寫法：辨識把專有名詞寫成別的字時，把那個寫法也列進來。英數詞不分大小寫、整詞比對。適用 Hy-MT2 與 Qwen 類翻譯模型；第一代 Hunyuan-MT 格式固定，不套用。
 
 ### 選用：定稿後用 Qwen3-ASR 重新辨識
 
