@@ -52,7 +52,7 @@ export REPO_ROOT="$HOME/work/live-translator"   # ← 要變更
 ## 1. 取得原始碼
 
 ```bash
-git clone https://github.com/haya790315/live-translator.git "${REPO_ROOT}"
+git clone https://github.com/mimimeowmeo/live-translator.git "${REPO_ROOT}"
 ```
 
 ## 2. 一次完成安裝

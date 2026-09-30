@@ -1,5 +1,7 @@
 # Live Translator
 
+> 本專案以 [haya790315/live-translator](https://github.com/haya790315/live-translator) 為基礎，另外加上詞彙表（`Models/glossary.txt`）與「下載腳本一併下載所選的翻譯模型」。原專案未附授權條款，原始程式碼的權利屬於原作者。
+
 在 Apple Silicon Mac 上完全本地執行的即時字幕工具：擷取 Mac 正在播放的系統音訊，辨識日文與英文（自動辨別，不需切換），翻成簡體中文，顯示在可拖移的浮動視窗，並可把逐字稿存成文字檔。音訊與文字不離開這台機器。
 
 ```text
@@ -23,7 +25,7 @@ Hy-MT2-1.8B 中文翻譯（MLX，帶前兩句上下文）
 1. 取得原始碼
 
    ```bash
-   git clone https://github.com/haya790315/live-translator.git
+   git clone https://github.com/mimimeowmeo/live-translator.git
    cd live-translator
    ```
 
